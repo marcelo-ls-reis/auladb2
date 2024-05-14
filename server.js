@@ -3,7 +3,7 @@ const bodyParser = require('body-parser');
 const { Pool } = require('pg');
 
 const app = express();
-const port = 3001; 
+const port = 3002; 
 
 app.use(bodyParser.json());
 
@@ -14,7 +14,6 @@ const pool = new Pool({
   password: '252300',
   port: 5432, // Porta padrão do PostgreSQL
 });
-
 
 app.post('/produto', async (req, res) => {
   try {
@@ -52,36 +51,55 @@ app.get('/produto', async (req, res) => {
   });
 
   //A cada insert deverá printar no console os dados persistidos com o id gerado;
-   
-    async function insertProduto(descricao, categoria, valor, criadoPor) {
-      try {
-        const query = `INSERT INTO produto (descricao, categoria, valor, criado_por) VALUES ($1, $2, $3, $4) RETURNING id`;
-        const values = [descricao, categoria, valor, criadoPor];
-    
-        const { rows } = await pool.query(query, values);
-        const insertedId = rows[0].id;
-        console.log(`Inserted product with ID: ${insertedId}`);
-    
-        // Perform 10 SELECTs for previous product IDs
-        for (let i = insertedId - 5; i < insertedId; i++) {
-          const selectQuery = `SELECT * FROM produto WHERE id = $1`;
-          const selectValues = [i];
-    
-          const { rows: selectResult } = await pool.query(selectQuery, selectValues);
-          if (selectResult.length > 0) {
-            console.log(`Selected product with ID: ${i}: ${JSON.stringify(selectResult[0])}`);
-          } else {
-            console.log(`Product with ID: ${i} not found`);
-          }
+
+async function insertProduto(descricao, categoria, valor, criadoPor) {
+  try {
+    // Inserindo um novo produto
+    const insertQuery = `
+      INSERT INTO produto (descricao, categoria, valor, criado_por)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (descricao, criado_por) DO NOTHING
+      RETURNING id;
+    `;
+    const insertValues = [descricao, categoria, valor, criadoPor];
+
+    const { rows } = await pool.query(insertQuery, insertValues);
+
+    if (rows.length === 0) {
+      // Nenhum produto foi inserido
+      console.log(`Produto com descricao "${descricao}" Criado por "${criadoPor}" já existe. Saido sem inserir.`);
+    } else {
+      const insertedId = rows[0].id;
+      console.log(`Inserido produto com ID: ${insertedId}`);
+
+      // Buscando os 10 produtos anteriores ao inserido
+      for (let i = 1; i <= 10; i++) {
+        const previousId = insertedId - i;
+        if (previousId <= 0) break; // Não há mais produtos anteriores
+
+        const selectQuery = `
+          SELECT * FROM produto WHERE id = $1;
+        `;
+        const selectValues = [previousId];
+
+        const { rows: selectRows } = await pool.query(selectQuery, selectValues);
+
+        if (selectRows.length === 0) {
+          console.log(`Não existe produto com esse ID: ${previousId}`);
+        } else {
+          console.log(`Produto com ID ${previousId}:`, selectRows[0]);
         }
-      } catch (error) {
-        console.error(`Error inserting product: ${error}`);
       }
     }
+  } catch (error) {
+    console.error(`Erro ao inserie produto: ${error}`);
+  }
+}
+
 
 
 app.listen(port, () => {
   console.log(`Servidor está ouvindo na porta ${port}`);
 });
 
-insertProduto('Produto 1', 'Cat', '100.00', 'Grupo 1');
+insertProduto('Cafeteira', 'Eletr', '256.00', 'Armazen de ideias');
