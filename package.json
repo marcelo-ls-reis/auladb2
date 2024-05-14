@@ -1,0 +1,15 @@
+{
+  "name": "auladb2",
+  "version": "1.0.0",
+  "description": "exercicio professor Sergio",
+  "main": "index.js",
+  "scripts": {
+    "test": "npm start"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.11.5"
+  }
+}
